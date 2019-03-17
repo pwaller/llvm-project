@@ -466,6 +466,8 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
         return CSR_32_AllRegs_SSE_RegMask;
       return CSR_32_AllRegs_RegMask;
     }
+  case CallingConv::X86_64_Go:
+    return CSR_NoRegs_RegMask;
   default:
     break;
   }

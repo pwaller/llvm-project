@@ -2447,6 +2447,17 @@ X86TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
 
   SmallVector<CCValAssign, 16> RVLocs;
   CCState CCInfo(CallConv, isVarArg, MF, RVLocs, *DAG.getContext());
+  if (CallConv == CallingConv::X86_64_Go) {
+    // TODO(pwaller): Check alignment is OK?
+    unsigned Alignment = 8;
+    // Wish I understood where the extra 8 comes from...
+    unsigned Offset = 8 + FuncInfo->getArgumentStackSize();
+    // LLVM_DEBUG(dbgs() << "X86_64_Go Offset =" << Offset << "\n");
+
+    CCInfo.AllocateStack(Offset, Alignment);
+
+    MF.getRegInfo().setCalleeSavedRegs({});
+  }
   CCInfo.AnalyzeReturn(Outs, RetCC_X86);
 
   SDValue Flag;
@@ -2456,17 +2467,29 @@ X86TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   RetOps.push_back(DAG.getTargetConstant(FuncInfo->getBytesToPopOnReturn(), dl,
                    MVT::i32));
 
+  const X86RegisterInfo *RegInfo = Subtarget.getRegisterInfo();
+  auto StackPtr = DAG.getCopyFromReg(Chain, dl, RegInfo->getStackRegister(),
+                                     getPointerTy(DAG.getDataLayout()));
+
   // Copy the result values into the output registers.
   for (unsigned I = 0, OutsIndex = 0, E = RVLocs.size(); I != E;
        ++I, ++OutsIndex) {
     CCValAssign &VA = RVLocs[I];
-    assert(VA.isRegLoc() && "Can only return in registers!");
+
+    SDValue ValToCopy = OutVals[OutsIndex];
+    ISD::ArgFlagsTy Flags = Outs[OutsIndex].Flags;
+
+    if (!VA.isRegLoc()) {
+      assert(VA.isMemLoc() && "Can only return in registers or stack!");
+      // Put return value on stack.
+      Chain = LowerMemOpCallTo(Chain, StackPtr, ValToCopy, dl, DAG, VA, Flags);
+      continue;
+    }
 
     // Add the register to the CalleeSaveDisableRegs list.
     if (ShouldDisableCalleeSavedRegister)
       MF.getRegInfo().disableCalleeSavedRegister(VA.getLocReg());
 
-    SDValue ValToCopy = OutVals[OutsIndex];
     EVT ValVT = ValToCopy.getValueType();
 
     // Promote values to the appropriate types.
@@ -2798,11 +2821,28 @@ SDValue X86TargetLowering::LowerCallResult(
                  *DAG.getContext());
   CCInfo.AnalyzeCallResult(Ins, RetCC_X86);
 
+  const X86RegisterInfo *RegInfo = Subtarget.getRegisterInfo();
+  auto StackPtr = DAG.getCopyFromReg(Chain, dl, RegInfo->getStackRegister(),
+                                     getPointerTy(DAG.getDataLayout()));
+
   // Copy all of the result registers out of their specified physreg.
   for (unsigned I = 0, InsIndex = 0, E = RVLocs.size(); I != E;
        ++I, ++InsIndex) {
     CCValAssign &VA = RVLocs[I];
     EVT CopyVT = VA.getLocVT();
+
+    if (VA.isMemLoc()) {
+      SDValue Val;
+      ISD::ArgFlagsTy Flags;
+      Chain = LowerMemOpCallTo(Chain, StackPtr, Val, dl, DAG, VA, Flags);
+      InVals.push_back(Val);
+      // unsigned LocMemOffset = VA.getLocMemOffset();
+      // SDValue PtrOff = DAG.getIntPtrConstant(LocMemOffset, dl);
+      // PtrOff = DAG.getNode(ISD::ADD, dl, getPointerTy(DAG.getDataLayout()),
+      //                      StackPtr, PtrOff);
+      // Chain =
+      continue;
+    }
 
     // In some calling conventions we need to remove the used registers
     // from the register mask.
@@ -3157,6 +3197,11 @@ SDValue X86TargetLowering::LowerFormalArguments(
   // Allocate shadow area for Win64.
   if (IsWin64)
     CCInfo.AllocateStack(32, 8);
+
+  if (CallConv == CallingConv::X86_64_Go) {
+    // Adjust stack base down.
+    CCInfo.AllocateStack(-8, 8);
+  }
 
   CCInfo.AnalyzeArguments(Ins, CC_X86);
 
@@ -3629,6 +3674,8 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   assert(!(isVarArg && canGuaranteeTCO(CallConv)) &&
          "Var args not supported with calling convention fastcc, ghc or hipe");
+
+  LLVM_DEBUG(dbgs() << "X86_64_Go CallingConv =" << CallConv << "\n");
 
   // Analyze operands of the call, assigning locations to each operand.
   SmallVector<CCValAssign, 16> ArgLocs;

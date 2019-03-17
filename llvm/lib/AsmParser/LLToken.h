@@ -149,6 +149,7 @@ enum Kind {
   kw_x86_64_sysvcc,
   kw_win64cc,
   kw_webkit_jscc,
+  kw_x86_64_gocc,
   kw_anyregcc,
   kw_swiftcc,
   kw_preserve_mostcc,

@@ -377,6 +377,20 @@ def RetCC_X86_64_WebKit_JS : CallingConv<[
   CCIfType<[i64], CCAssignToReg<[RAX]>>
 ]>;
 
+def CC_X86_64_Go : CallingConv<[
+  // All args are stored on the stack.
+  CCIfType<[i8], CCAssignToStack<1, 8>>,
+  CCIfType<[i16], CCAssignToStack<2, 8>>,
+  CCIfType<[i32], CCAssignToStack<4, 8>>,
+  CCIfType<[i64], CCAssignToStack<8, 8>>
+]>;
+
+// X86-64 Go return-value convention.
+def RetCC_X86_64_Go : CallingConv<[
+  // Return values are handled just as arguments: they go on the stack.
+  CCDelegateTo<CC_X86_64_Go>
+]>;
+
 def RetCC_X86_64_Swift : CallingConv<[
 
   CCIfSwiftError<CCIfType<[i64], CCAssignToReg<[R12]>>>,
@@ -445,6 +459,9 @@ def RetCC_X86_32 : CallingConv<[
 def RetCC_X86_64 : CallingConv<[
   // HiPE uses RetCC_X86_64_HiPE
   CCIfCC<"CallingConv::HiPE", CCDelegateTo<RetCC_X86_64_HiPE>>,
+
+  // Handle Go calls.
+  CCIfCC<"CallingConv::X86_64_Go", CCDelegateTo<RetCC_X86_64_Go>>,
 
   // Handle JavaScript calls.
   CCIfCC<"CallingConv::WebKit_JS", CCDelegateTo<RetCC_X86_64_WebKit_JS>>,
@@ -1012,6 +1029,7 @@ def CC_X86_64 : CallingConv<[
   CCIfCC<"CallingConv::GHC", CCDelegateTo<CC_X86_64_GHC>>,
   CCIfCC<"CallingConv::HiPE", CCDelegateTo<CC_X86_64_HiPE>>,
   CCIfCC<"CallingConv::WebKit_JS", CCDelegateTo<CC_X86_64_WebKit_JS>>,
+  CCIfCC<"CallingConv::X86_64_Go", CCDelegateTo<CC_X86_64_Go>>,
   CCIfCC<"CallingConv::AnyReg", CCDelegateTo<CC_X86_64_AnyReg>>,
   CCIfCC<"CallingConv::Win64", CCDelegateTo<CC_X86_Win64_C>>,
   CCIfCC<"CallingConv::X86_64_SysV", CCDelegateTo<CC_X86_64_C>>,
