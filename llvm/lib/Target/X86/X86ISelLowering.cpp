@@ -2448,14 +2448,14 @@ X86TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   SmallVector<CCValAssign, 16> RVLocs;
   CCState CCInfo(CallConv, isVarArg, MF, RVLocs, *DAG.getContext());
   if (CallConv == CallingConv::X86_64_Go) {
-    // TODO(pwaller): Check alignment is OK?
     unsigned Alignment = 8;
-    // Wish I understood where the extra 8 comes from...
+    // 8 represents return address.
     unsigned Offset = 8 + FuncInfo->getArgumentStackSize();
     // LLVM_DEBUG(dbgs() << "X86_64_Go Offset =" << Offset << "\n");
 
     CCInfo.AllocateStack(Offset, Alignment);
 
+    // Go uses only caller-saved registers.
     MF.getRegInfo().setCalleeSavedRegs({});
   }
   CCInfo.AnalyzeReturn(Outs, RetCC_X86);
@@ -3199,8 +3199,7 @@ SDValue X86TargetLowering::LowerFormalArguments(
     CCInfo.AllocateStack(32, 8);
 
   if (CallConv == CallingConv::X86_64_Go) {
-    // Adjust stack base down.
-    CCInfo.AllocateStack(-8, 8);
+    CCInfo.AllocateStack(0, 8);
   }
 
   CCInfo.AnalyzeArguments(Ins, CC_X86);
