@@ -356,6 +356,8 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
         return CSR_32_AllRegs_SSE_SaveList;
       return CSR_32_AllRegs_SaveList;
     }
+  case CallingConv::X86_64_Go:
+    return CSR_NoRegs_SaveList;
   default:
     break;
   }

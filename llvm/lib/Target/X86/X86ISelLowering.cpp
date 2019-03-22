@@ -2833,14 +2833,12 @@ SDValue X86TargetLowering::LowerCallResult(
 
     if (VA.isMemLoc()) {
       SDValue Val;
-      ISD::ArgFlagsTy Flags;
-      Chain = LowerMemOpCallTo(Chain, StackPtr, Val, dl, DAG, VA, Flags);
+      unsigned LocMemOffset = VA.getLocMemOffset();
+      SDValue Ptr = DAG.getMemBasePlusOffset(StackPtr, LocMemOffset, dl);
+      Val = DAG.getLoad(
+        CopyVT, dl, Chain, Ptr,
+        MachinePointerInfo());
       InVals.push_back(Val);
-      // unsigned LocMemOffset = VA.getLocMemOffset();
-      // SDValue PtrOff = DAG.getIntPtrConstant(LocMemOffset, dl);
-      // PtrOff = DAG.getNode(ISD::ADD, dl, getPointerTy(DAG.getDataLayout()),
-      //                      StackPtr, PtrOff);
-      // Chain =
       continue;
     }
 
